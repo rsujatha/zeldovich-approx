@@ -1,0 +1,208 @@
+import numpy as np
+import library as lb
+		
+class initial_density_field(object):
+	
+	def __init__(self,GridSize=128, XSize = 1.28,Seed = 10000):
+		self.RedShift0 = 100.
+		self.ScaleFactor0 = 1./(1+self.RedShift0)
+		self.GridSize = 128
+		self.XSize =  XSize
+		self.dx = XSize/float(GridSize)
+		self.seed = Seed
+		self.dk=2*np.pi/(self.dx*self.GridSize)
+		
+	def x_range(self):
+		xspace = np.array(range(0,self.GridSize))*self.dx
+		return xspace	
+		
+	def k_array(self):
+		kspace = np.concatenate([range(0,self.GridSize/2),range(-self.GridSize/2,0)])*self.dk	
+		k_x, k_y ,k_z = np.meshgrid(kspace,kspace,kspace[0:self.GridSize/2+1], indexing='ij')
+		return k_x, k_y, k_z
+		
+	def ksquare(self):
+		kx, ky, kz = initial_density_field.k_array(self)
+		ksquare = kx**2 + ky**2 + kz**2
+		return ksquare
+
+	def var(self,tiny=1e-15):
+		ksquare  = initial_density_field.ksquare(self)
+		return (self.dk)**3/(2*np.pi)**3*lb.P(np.sqrt(ksquare)+tiny,self.RedShift0)/2
+		
+	def initial_deltak(self):
+		mean=0
+		np.random.seed(self.seed)
+		variance = initial_density_field.var(self)
+		return np.random.normal(mean,np.sqrt(variance), [self.GridSize,self.GridSize,self.GridSize/2+1]) + np.random.normal(mean,np.sqrt(variance), [self.GridSize,self.GridSize,self.GridSize/2+1])*1j
+	
+	def initial_deltax(self):
+		deltak = initial_density_field.initial_deltak(self)
+		return self.GridSize**3 *np.fft.irfftn(deltak)
+
+
+class zeldovich(initial_density_field):
+	def __init__(self):
+		 initial_density_field.__init__(self)
+	
+	def psik_scalar(self):
+		deltak = initial_density_field.initial_deltak(self)
+		ksquare = initial_density_field.ksquare(self)
+		psik_scalar = -deltak/(ksquare + 1e-15)
+		psik_scalar[0,0] = 0
+		return psik_scalar
+	
+	def psik_vector(self):
+		k_x,k_y,k_z = initial_density_field.k_array(self)
+		psik_vector_x = zeldovich.psik_scalar(self) * k_x * 1j
+		psik_vector_y = zeldovich.psik_scalar(self) * k_y * 1j
+		psik_vector_z = zeldovich.psik_scalar(self) * k_z * 1j
+		return psik_vector_x, psik_vector_y, psik_vector_z
+		
+	def psi_vector0(self):
+		psik_vector_x, psik_vector_y, psik_vector_z = zeldovich.psik_vector(self)
+		psi_vector_x0 = self.GridSize**3 *  np.fft.irfftn(psik_vector_x)
+		psi_vector_y0 = self.GridSize**3 *  np.fft.irfftn(psik_vector_y)
+		psi_vector_z0 = self.GridSize**3 *  np.fft.irfftn(psik_vector_z)
+		return psi_vector_x0, psi_vector_y0, psi_vector_z0
+		
+	def psi_vector(self,RedShift):
+		Scalefactor = 1./(1+RedShift)
+		psi_vector_x0,psi_vector_y0,psi_vector_z0 = zeldovich.psi_vector0(self)
+		psi_vector_x = psi_vector_x0*lb.GrowthFunctionAnalytic(Scalefactor)/lb.GrowthFunctionAnalytic(self.ScaleFactor0)
+		psi_vector_y = psi_vector_y0*lb.GrowthFunctionAnalytic(Scalefactor)/lb.GrowthFunctionAnalytic(self.ScaleFactor0)
+		psi_vector_z = psi_vector_z0*lb.GrowthFunctionAnalytic(Scalefactor)/lb.GrowthFunctionAnalytic(self.ScaleFactor0)
+		return psi_vector_x, psi_vector_y, psi_vector_z
+
+	def Position(self,RedShift):
+		i = range(0,self.GridSize)
+		j = range(0,self.GridSize)
+		k = range(0,self.GridSize)
+		ii ,jj ,kk = np.meshgrid(i ,j ,k, indexing='ij' )
+		Position = np.zeros([3,self.GridSize,self.GridSize,self.GridSize])
+		psi_vector_x ,psi_vector_y, psi_vector_z = zeldovich.psi_vector(self,RedShift)
+		Position[0,:,:,:] = np.mod(ii* self.dx - psi_vector_x,self.XSize)
+		Position[1,:,:,:] = np.mod(jj* self.dx - psi_vector_y,self.XSize)
+		Position[2,:,:,:] = np.mod(kk* self.dx - psi_vector_z,self.XSize)
+		return Position
+
+class pmInterpolation(lb.cosmology):
+	def __init__(self):
+		lb.cosmology.__init__(self)
+		
+	def Counts(self,BinNumber,GridSize,Weight):
+		Counts = np.bincount((BinNumber.astype(int)).reshape(GridSize**3),Weight)
+		padcount = GridSize**3-Counts.shape[0] 
+		Counts = np.pad(Counts,(0,padcount),'constant')
+		return Counts.reshape([GridSize,GridSize,GridSize])
+		
+	def Deltax(self,TotalCounts):
+		return TotalCounts-1 
+		
+	def FieldDensity(self,TotalCounts):
+		return TotalCounts * self.rho_c *Omega_matter
+		
+	def ksquare(self,GridSize,LBox):
+		dk = 2*np.pi/(LBox)
+		kspace = np.concatenate([range(0,GridSize/2),range(-GridSize/2,0)])*dk	
+		k_x, k_y ,k_z = np.meshgrid(kspace,kspace,kspace, indexing='ij')
+		ksquare = k_x**2 + k_y**2 + k_z**2
+		return ksquare
+			
+	def ngp(self,Position,Lbox):
+		GridSize = Position.shape[1]
+		dx = Lbox / Position.shape[1]
+		inew = np.floor(np.mod(Position[0,:,:,:] + dx/2,Lbox)/dx)
+		jnew = np.floor(np.mod(Position[1,:,:,:]  + dx/2,Lbox)/dx)
+		knew = np.floor(np.mod(Position[2,:,:,:]  + dx/2,Lbox)/dx)
+		BinNumber = inew*GridSize**2 + GridSize *jnew + knew  
+		return pmInterpolation.Counts(self,BinNumber,GridSize,Weight=None)
+		
+	def ngp_smooth(self,Position,Lbox,R):
+		GridSize = Position.shape[1]
+		ksquare = pmInterpolation.ksquare(self,GridSize,Lbox)
+		TotalCounts = pmInterpolation.ngp(self,Position,Lbox)     
+		TotalCountsk = np.fft.fftn(TotalCounts)	
+		TotalCounts_smooth = np.fft.ifftn(TotalCountsk*lb.GaussianWk(np.sqrt(ksquare),R)).real
+		return TotalCounts_smooth
+		
+	def cic(self,Position,Lbox):
+		dx = Lbox / Position.shape[1]
+		GridSize = Position.shape[1]
+		#### Cell 0	
+		inew = np.mod(np.floor(Position[0,:,:,:]/dx),GridSize)
+		jnew = np.mod(np.floor(Position[1,:,:,:]/dx),GridSize)
+		knew = np.mod(np.floor(Position[2,:,:,:]/dx),GridSize)
+		BinNumber = inew*GridSize**2  + GridSize *jnew + knew
+		delx = Position[0,:,:,:] - inew*dx
+		dely = Position[1,:,:,:] - jnew*dx
+		delz = Position[2,:,:,:] - knew*dx
+		Weight = (dx-delx)*(dx-dely)*(dx-delz)/dx**3
+		TotalCounts = pmInterpolation.Counts(self,BinNumber,GridSize,Weight.reshape(GridSize**3))
+		
+		#### Cell 1	
+		BinNumber = np.mod(inew + 1,GridSize)*GridSize**2  + GridSize *jnew + knew
+		Weight	   = delx * (dx - dely) * (dx - delz)/dx**3
+		TotalCounts += pmInterpolation.Counts(self,BinNumber,GridSize,Weight.reshape(GridSize**3))
+		
+		
+		#### Cell 2	
+		BinNumber = np.mod(inew + 1,GridSize)*GridSize**2  + GridSize *np.mod(jnew + 1,GridSize) + knew
+		Weight	   = delx * dely * (dx - delz)/dx**3
+		TotalCounts += pmInterpolation.Counts(self,BinNumber,GridSize,Weight.reshape(GridSize**3))
+	 
+		#### Cell 3	
+		BinNumber = inew*GridSize**2  + GridSize *np.mod(jnew + 1,GridSize) + knew
+		Weight	  = (dx - delx)*dely * (dx-delz)/dx**3
+		TotalCounts += pmInterpolation.Counts(self,BinNumber,GridSize,Weight.reshape(GridSize**3))
+ 
+		#~ #### Cell 4	
+		BinNumber = inew*GridSize**2  + GridSize *jnew + np.mod(knew + 1,GridSize)
+		Weight	  =  (dx-delx) * (dx-dely) * delz /dx**3
+		TotalCounts += pmInterpolation.Counts(self,BinNumber,GridSize,Weight.reshape(GridSize**3))
+ 
+ 
+		#~ #### Cell 5	
+		BinNumber = np.mod(inew + 1,GridSize)*GridSize**2  + GridSize *jnew + np.mod(knew + 1,GridSize)
+		Weight	  = delx * (dx- dely) * delz /dx**3
+		TotalCounts += pmInterpolation.Counts(self,BinNumber,GridSize,Weight.reshape(GridSize**3))
+ 
+		#### Cell 6	
+		BinNumber = np.mod(inew +1,GridSize)*GridSize**2  + GridSize *np.mod(jnew +1,GridSize) + np.mod(knew + 1,GridSize)
+		Weight	  = delx*dely*delz/dx**3
+		TotalCounts += pmInterpolation.Counts(self,BinNumber,GridSize,Weight.reshape(GridSize**3))
+ 
+		#~ #### Cell 7	
+		BinNumber = inew*GridSize**2  + GridSize *np.mod(jnew + 1,GridSize) + np.mod(knew + 1,GridSize)
+		Weight	  = (dx - delx)*dely*delz/dx**3
+		TotalCounts += pmInterpolation.Counts(self,BinNumber,GridSize,Weight.reshape(GridSize**3))
+		return TotalCounts
+		
+
+	def cicl(self,Position,Lbox):
+		GridSize = Position.shape[1]
+		dx = Lbox / Position.shape[1]
+		Counts = np.zeros([GridSize,GridSize,GridSize])
+		for i in range(0,GridSize):
+			for j in range(0,GridSize):
+				for k in range(0,GridSize):
+					inew  = int(np.mod(np.floor(Position[0,i,j,k]/dx),GridSize))
+					inew1 = int(np.mod(inew + 1,GridSize))
+					jnew  = int(np.mod(np.floor(Position[1,i,j,k]/dx),GridSize))
+					jnew1 = int(np.mod(jnew + 1,GridSize))
+					knew  = int(np.mod(np.floor(Position[2,i,j,k]/dx),GridSize))
+					knew1 = int(np.mod(knew + 1,GridSize))
+					delx  = Position[0,i,j,k] - inew*dx
+					dely  = Position[1,i,j,k] - jnew*dx
+					delz  = Position[2,i,j,k] - knew*dx
+					
+					Counts[inew,jnew,knew] += (dx-delx)*(dx-dely)*(dx-delz)/dx**3
+					Counts[inew1,jnew,knew] += delx * (dx- dely) * (dx - delz) / dx**3 
+					Counts[inew1,jnew1,knew] +=delx * dely * (dx - delz)/dx**3
+					Counts[inew,jnew1,knew] += (dx - delx)*dely * (dx-delz)/dx**3
+					Counts[inew,jnew,knew1] += (dx-delx) * (dx-dely) * delz /dx**3
+					Counts[inew1,jnew,knew1] +=  delx * (dx- dely) * delz /dx**3
+					Counts[inew1,jnew1,knew1] += delx*dely*delz/dx**3
+					Counts[inew,jnew1,knew1] += (dx - delx)*dely*delz/dx**3
+		return Counts
+		

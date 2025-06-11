@@ -1,0 +1,19 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+\usepackage{mathtools}
+\usepackage{bm}
+\usepackage{hyperref}
+\author{Sujatha}
+\title{Skewness and Kurthosis}
+\begin{document}
+\maketitle
+\section{Skewness}
+Skewness is the standardised third moment. It is defined as follows
+\begin{align*}
+ \gamma_1 = \left(
+\end{align*}
+
+
+
+\end{document}

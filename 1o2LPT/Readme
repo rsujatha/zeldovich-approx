@@ -1,0 +1,8 @@
+## For making gif
+convert 'zeld_mov_%d.png[0-199]' -loop 1 output1.gif
+
+## For making timesnapshots always record the following
+	#1) Redshift
+	#2) BoxSize/XSize
+	#3) GridSize
+

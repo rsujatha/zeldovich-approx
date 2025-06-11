@@ -1,0 +1,55 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+\usepackage{mathtools}
+\usepackage{bm}
+\usepackage{hyperref}
+\title{Power Spectrum}
+\author{Sujatha}
+\begin{document}
+\maketitle
+\section{Definition}
+Power spectrum is defined as the fourier transform of the autocorrelation function. The autocorrelation of a function 
+$\delta(x)$ is 
+\begin{align*}
+a(\tau) = \int_{-\infty}^{\infty}\delta(x) \delta(x+\tau)dx  ??
+\end{align*}
+And the Power Spectrum is,
+
+\begin{align*}
+ P(k)& = \int_{-\infty}^{\infty}\exp(-ik\tau)a(\tau)d\tau\\
+ &= \int_{-\infty}^{\infty}\exp(-ik\tau)\int_{-\infty}^{\infty}\delta(x) \delta(x+\tau)dxd\tau\\
+  &= \int_{-\infty}^{\infty}\exp(-ik(\tau+x))\int_{-\infty}^{\infty}\exp(ikx)\delta(x) \delta(x+\tau)dxd\tau\\
+    &= \int_{-\infty}^{\infty}\exp(ikx)\delta(x)\int_{-\infty}^{\infty}\exp(-ik(x+\tau)) \delta(x+\tau)d\tau dx\\
+    &= \tilde{\delta}^{*}(k)\tilde{\delta}(k)
+\end{align*}
+
+\section{Discrete and Continous}
+The power spectrum is defined as follows
+\begin{align}
+(2 \pi)^3 \delta_{D}(\bm{k}-\bm{k^{\prime}}) P(\bm{k}) = <\delta(\bm{k})\delta^*(\bm{k^{\prime }})> \label{defn:ps}
+\end{align}
+The DFT fourier space interval given by $\Delta k=\Delta k_{x}=\Delta k_{y}=\Delta k_{z} = 2 \pi/L$ ,where L is the real space interval. Multiplying both sides by $(\Delta k)^3 = \Delta k_x \Delta k_y \Delta k_z$ we get
+\begin{align}
+(2 \pi)^3 \delta_{D}(\bm{k}-\bm{k^{\prime}}) P(\bm{k})(\Delta k)^3 = <\delta(\bm{k})\delta^*(\bm{k^{\prime}})> (\Delta k)^3   \label{defn:ps1}
+\end{align} 
+Now lets discretize $\bm{k}^{\prime}$ by saying that it belongs to a set which is equally spaced by dk along all three axis. Either $\bm{k}^{\prime}$ lies inside the interval  $[\bm{k}-d\bm{k}/2,\bm{k}+d\bm{k}/2]$ or outside the interval. When it is outside the interval,
+then the RHS of eq[\ref{defn:ps1}] is identically zero. When $\bm{k}^{\prime}$ is inside the interval, $\bm{k}^{\prime} \approx \bm{k}$ on the RHS and the LHS can be modified as,
+\begin{align}
+\sum_{\bm{k^{\prime}}}^{}(2 \pi)^3 \delta_{D}(\bm{k}-\bm{k^{\prime}}) P(\bm{k})(\Delta k)^3 = <\delta(\bm{k})\delta^*(\bm{k})> (\Delta k)^3   \label{defn:ps2}
+\end{align}
+The summation above is over the discrete set in which $\bm{k}^{\prime}$ belongs. When $\Delta k$ is very small we can replace the summation on the RHS above with integration.
+\begin{align}
+\int (2 \pi)^3 \delta_{D}(\bm{k}-\bm{k^{\prime}}) P(\bm{k})d^3k^{\prime} &= <\delta(\bm{k})\delta^*(\bm{k})> \Delta k_x \Delta k_y \Delta k_z   \label{defn:ps3}\\
+(2 \pi)^3 P(\bm{k} )&=<\delta(\bm{k})\delta^*(\bm{k})> (2 \pi)^3/L^3  \label{defn:ps4}
+\end{align}
+The continous can be replaced with discrete fourier transform as follows(See Math methods notes for more details.)
+$\delta(\bm{k}) = \delta_{\bm{k}} L^3$. After this substitution, eqn[\ref{defn:ps4}] becomes,
+\begin{align}
+P(\bm{k})/L^3&=<\delta_{\bm{k}}^2> \equiv P_{discrete}
+\end{align}
+
+
+
+
+\end{document}
