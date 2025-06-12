@@ -1,5 +1,5 @@
 <h1>zeldovich-approximation</h1>
-Graduate school project on the Zeldovich approximation or 1LPT,<br>
+Graduate school project on the Zeldovich approximation or 1LPT,
       used to generate initial conditions for N-body simulations.
 <table>
   <tr>
