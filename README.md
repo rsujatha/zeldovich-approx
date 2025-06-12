@@ -11,3 +11,4 @@ Graduate school project on the Zeldovich approximation or 1LPT,
     </td>
   </tr>
 </table>
+[📄 Read the full report (PDF)](https://github.com/rsujatha/zeldovich-approx/blob/main/report_corrected.pdf)
